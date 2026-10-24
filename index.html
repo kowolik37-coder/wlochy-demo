@@ -36,6 +36,61 @@
       overflow-x: hidden;
     }
 
+    /* EKRAN 0: INTRO WIDEO */
+    #video-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: #000;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.6s ease, visibility 0.6s ease;
+    }
+
+    #promo-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .video-controls-overlay {
+      position: absolute;
+      bottom: 30px;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 24px;
+      z-index: 10000;
+    }
+
+    .btn-video-control {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(8px);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 10px 18px;
+      border-radius: 999px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+
+    .btn-video-control:hover {
+      background: rgba(194, 65, 12, 0.85);
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+
     /* Widok 1: Strona powitalna ze wstępem */
     #intro-screen {
       flex: 1;
@@ -226,7 +281,6 @@
       line-height: 1.4;
     }
 
-    /* Styl znaczników */
     .custom-marker {
       display: flex;
       align-items: center;
@@ -243,6 +297,22 @@
   </style>
 </head>
 <body>
+
+  <!-- EKRAN 0: PEŁNOEKRANOWE INTRO WIDEO -->
+  <div id="video-overlay">
+    <video id="promo-video" playsinline preload="auto">
+      <source src="promo.mp4" type="video/mp4">
+      Twoja przeglądarka nie obsługuje wideo.
+    </video>
+    <div class="video-controls-overlay">
+      <button id="btn-unmute-video" class="btn-video-control">
+        <span id="unmute-icon">🔊</span> <span id="unmute-text">Włącz dźwięk</span>
+      </button>
+      <button id="btn-skip-video" class="btn-video-control">
+        <span>Pomiń intro</span> ➔
+      </button>
+    </div>
+  </div>
 
   <!-- Widok 1: Wstęp (Wersja DEMO z limitem 40s) -->
   <div id="intro-screen">
@@ -288,7 +358,56 @@
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    // Dokładne współrzędne punktów trasy
+    // ZARZĄDZANIE INTRO WIDEO
+    const videoOverlay = document.getElementById('video-overlay');
+    const promoVideo = document.getElementById('promo-video');
+    const btnSkipVideo = document.getElementById('btn-skip-video');
+    const btnUnmuteVideo = document.getElementById('btn-unmute-video');
+    const unmuteIcon = document.getElementById('unmute-icon');
+    const unmuteText = document.getElementById('unmute-text');
+
+    // Automatyczny start wideo (zabezpieczenie na politykę autoplay przeglądarek mobilnych)
+    promoVideo.muted = true;
+    const playPromise = promoVideo.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        // Jeśli przeglądarka zablokowała autoplay, pierwsze dotknięcie ekranu uruchomi film
+        document.body.addEventListener('click', () => {
+          promoVideo.play();
+        }, { once: true });
+      });
+    }
+
+    // Wyciszenie / włączenie dźwięku w filmie
+    btnUnmuteVideo.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (promoVideo.muted) {
+        promoVideo.muted = false;
+        unmuteIcon.innerText = "🔇";
+        unmuteText.innerText = "Wycisz";
+      } else {
+        promoVideo.muted = true;
+        unmuteIcon.innerText = "🔊";
+        unmuteText.innerText = "Włącz dźwięk";
+      }
+    });
+
+    // Zakończenie filmu lub pominięcie
+    function closeVideoIntro() {
+      promoVideo.pause();
+      videoOverlay.style.opacity = '0';
+      setTimeout(() => {
+        videoOverlay.style.display = 'none';
+      }, 600);
+    }
+
+    promoVideo.addEventListener('ended', closeVideoIntro);
+    btnSkipVideo.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeVideoIntro();
+    });
+
+    // PUNKTY I LOGIKA DEMO
     const stops = [
       { id: 1, coords: [44.4815, 11.3413] },
       { id: 2, coords: [44.4891, 11.3465] },
@@ -308,7 +427,7 @@
     const mapScreen = document.getElementById('map-screen');
     let map = null;
 
-    // 1. Zatrzymanie odtwarzania po dokładnie 40 sekundach i odblokowanie przycisku
+    // Zatrzymanie audio po 40s i odblokowanie przycisku
     introAudio.addEventListener('timeupdate', () => {
       if (introAudio.currentTime >= 40) {
         introAudio.pause();
@@ -316,7 +435,6 @@
       }
     });
 
-    // Jeśli nagranie skończy się wcześniej niż 40s
     introAudio.addEventListener('ended', enableMapButton);
 
     function enableMapButton() {
@@ -330,7 +448,6 @@
       initMap();
     });
 
-    // 2. Inicjalizacja mapy Leaflet
     function initMap() {
       if (map) return;
 
@@ -341,7 +458,6 @@
         maxZoom: 19
       }).addTo(map);
 
-      // Ścieżka spaceru
       const pathCoords = stops.map(s => s.coords);
       L.polyline(pathCoords, {
         color: '#c2410c',
@@ -350,7 +466,6 @@
         opacity: 0.7
       }).addTo(map);
 
-      // Dodanie samych punktów z numerami (bez nazw i bez nagrań)
       stops.forEach((stop) => {
         const markerEl = document.createElement('div');
         markerEl.className = 'custom-marker';
@@ -369,7 +484,7 @@
       });
     }
 
-    // 3. Licznik czasu: 15 listopada 2026 r., godz. 04:00 rano
+    // Licznik: 15 listopada 2026 r., godz. 04:00
     const targetDate = new Date('2026-11-15T04:00:00').getTime();
 
     function updateCountdown() {
