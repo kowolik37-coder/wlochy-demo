@@ -58,6 +58,46 @@
       object-fit: cover;
     }
 
+    /* Ekran startowy z wymuszeniem pierwszego kliknięcia dla natychmiastowego dźwięku */
+    #video-starter {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(8px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10001;
+      cursor: pointer;
+      text-align: center;
+      padding: 24px;
+    }
+
+    .play-circle {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.2rem;
+      color: white;
+      box-shadow: 0 0 30px rgba(194, 65, 12, 0.7);
+      margin-bottom: 20px;
+      animation: pulse-ring 1.8s infinite;
+    }
+
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(194, 65, 12, 0.7); }
+      70% { transform: scale(1.05); box-shadow: 0 0 0 20px rgba(194, 65, 12, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(194, 65, 12, 0); }
+    }
+
     .video-controls-overlay {
       position: absolute;
       bottom: 30px;
@@ -74,7 +114,7 @@
       background: rgba(15, 23, 42, 0.75);
       backdrop-filter: blur(8px);
       color: white;
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.25);
       padding: 10px 18px;
       border-radius: 999px;
       font-size: 0.9rem;
@@ -87,7 +127,7 @@
     }
 
     .btn-video-control:hover {
-      background: rgba(194, 65, 12, 0.85);
+      background: rgba(194, 65, 12, 0.9);
       border-color: rgba(255, 255, 255, 0.4);
     }
 
@@ -300,13 +340,22 @@
 
   <!-- EKRAN 0: PEŁNOEKRANOWE INTRO WIDEO -->
   <div id="video-overlay">
+    <!-- Nakładka startowa gwarantująca natychmiastowe odtworzenie dźwięku od sekundy 0 -->
+    <div id="video-starter">
+      <div class="play-circle">▶</div>
+      <h2 style="font-size: 1.5rem; font-weight: 800; margin-bottom: 6px;">Dotknij, aby włączyć</h2>
+      <p style="color: var(--text-muted); font-size: 0.9rem;">Prezentacja z dźwiękiem lektora 🔊</p>
+    </div>
+
     <video id="promo-video" playsinline preload="auto">
       <source src="promo.mp4" type="video/mp4">
       Twoja przeglądarka nie obsługuje wideo.
     </video>
+
     <div class="video-controls-overlay">
-      <button id="btn-unmute-video" class="btn-video-control">
-        <span id="unmute-icon">🔊</span> <span id="unmute-text">Włącz dźwięk</span>
+      <!-- Domyślnie dźwięk jest WŁĄCZONY, więc przycisk służy do wyciszenia -->
+      <button id="btn-toggle-sound" class="btn-video-control">
+        <span id="sound-icon">🔇</span> <span id="sound-text">Wycisz dźwięk</span>
       </button>
       <button id="btn-skip-video" class="btn-video-control">
         <span>Pomiń intro</span> ➔
@@ -339,7 +388,6 @@
 
   <!-- Widok 2: Mapa Demo z licznikiem -->
   <div id="map-screen">
-    <!-- Pływający widget z licznikiem czasu w rogu -->
     <div class="countdown-widget">
       <div class="countdown-author">Przewodnik Krisa • Wersja Demo</div>
       <div class="countdown-label">Czas do rozpoczęcia wycieczki:</div>
@@ -348,7 +396,6 @@
 
     <div id="map"></div>
 
-    <!-- Dolna informacja -->
     <div class="stop-panel-demo">
       <h3>🔒 Pełna trasa zablokowana</h3>
       <p>Punkty spaceru i opowieści audio zostaną odblokowane w trakcie wyjazdu.</p>
@@ -358,41 +405,55 @@
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    // ZARZĄDZANIE INTRO WIDEO
+    // ZARZĄDZANIE WIDEO Z PEŁNYM DŹWIĘKIEM OD POCZĄTKU
     const videoOverlay = document.getElementById('video-overlay');
+    const videoStarter = document.getElementById('video-starter');
     const promoVideo = document.getElementById('promo-video');
+    const btnToggleSound = document.getElementById('btn-toggle-sound');
+    const soundIcon = document.getElementById('sound-icon');
+    const soundText = document.getElementById('sound-text');
     const btnSkipVideo = document.getElementById('btn-skip-video');
-    const btnUnmuteVideo = document.getElementById('btn-unmute-video');
-    const unmuteIcon = document.getElementById('unmute-icon');
-    const unmuteText = document.getElementById('unmute-text');
 
-    // Automatyczny start wideo (zabezpieczenie na politykę autoplay przeglądarek mobilnych)
-    promoVideo.muted = true;
-    const playPromise = promoVideo.play();
-    if (playPromise !== undefined) {
-      playPromise.catch(() => {
-        // Jeśli przeglądarka zablokowała autoplay, pierwsze dotknięcie ekranu uruchomi film
-        document.body.addEventListener('click', () => {
-          promoVideo.play();
-        }, { once: true });
+    // Ustawienie dźwięku na WŁĄCZONY
+    promoVideo.muted = false;
+    promoVideo.volume = 1.0;
+
+    // Próba autoplay z dźwiękiem (jeśli przeglądarka pozwoli)
+    const directPlay = promoVideo.play();
+    if (directPlay !== undefined) {
+      directPlay.then(() => {
+        // Udało się wystartować od razu z głosem – ukrywamy nakładkę startową
+        videoStarter.style.display = 'none';
+      }).catch(() => {
+        // Przeglądarka zablokowała autoplay z dźwiękiem – nakładka czeka na jedno dotknięcie
+        videoStarter.style.display = 'flex';
       });
     }
 
-    // Wyciszenie / włączenie dźwięku w filmie
-    btnUnmuteVideo.addEventListener('click', (e) => {
+    // Kliknięcie w nakładkę startuje wideo natychmiast z pełnym dźwiękiem od początku
+    videoStarter.addEventListener('click', () => {
+      videoStarter.style.display = 'none';
+      promoVideo.currentTime = 0;
+      promoVideo.muted = false;
+      promoVideo.volume = 1.0;
+      promoVideo.play();
+    });
+
+    // Przycisk wyciszenia / ponownego włączenia dźwięku
+    btnToggleSound.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (promoVideo.muted) {
-        promoVideo.muted = false;
-        unmuteIcon.innerText = "🔇";
-        unmuteText.innerText = "Wycisz";
-      } else {
+      if (!promoVideo.muted) {
         promoVideo.muted = true;
-        unmuteIcon.innerText = "🔊";
-        unmuteText.innerText = "Włącz dźwięk";
+        soundIcon.innerText = "🔊";
+        soundText.innerText = "Włącz dźwięk";
+      } else {
+        promoVideo.muted = false;
+        soundIcon.innerText = "🔇";
+        soundText.innerText = "Wycisz dźwięk";
       }
     });
 
-    // Zakończenie filmu lub pominięcie
+    // Zamknięcie intro po skończeniu lub kliknięciu "Pomiń"
     function closeVideoIntro() {
       promoVideo.pause();
       videoOverlay.style.opacity = '0';
@@ -427,7 +488,6 @@
     const mapScreen = document.getElementById('map-screen');
     let map = null;
 
-    // Zatrzymanie audio po 40s i odblokowanie przycisku
     introAudio.addEventListener('timeupdate', () => {
       if (introAudio.currentTime >= 40) {
         introAudio.pause();
@@ -484,7 +544,7 @@
       });
     }
 
-    // Licznik: 15 listopada 2026 r., godz. 04:00
+    // Licznik do 15 listopada 2026 r., godz. 04:00
     const targetDate = new Date('2026-11-15T04:00:00').getTime();
 
     function updateCountdown() {
