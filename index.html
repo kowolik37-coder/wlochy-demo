@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Przewodnik Audio: Bolonia (DEMO)</title>
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  
+  <style>
+    :root {
+      --primary: #c2410c;
+      --primary-hover: #9a3412;
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --gold: #f59e0b;
+      --border: #334155;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Widok 1: Strona powitalna ze wstępem */
+    #intro-screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+      background: radial-gradient(circle at top, #331d16 0%, #0f172a 75%);
+    }
+
+    .badge-demo {
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(245, 158, 11, 0.2);
+      color: var(--gold);
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+      border: 1px solid rgba(245, 158, 11, 0.4);
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      line-height: 1.2;
+      margin-bottom: 12px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 1rem;
+      max-width: 480px;
+      line-height: 1.6;
+      margin-bottom: 28px;
+    }
+
+    .player-card {
+      width: 100%;
+      max-width: 420px;
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(12px);
+      padding: 24px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4);
+      margin-bottom: 24px;
+    }
+
+    .player-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .player-desc {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    .limit-notice {
+      display: inline-block;
+      font-size: 0.8rem;
+      color: #cbd5e1;
+      background: rgba(0,0,0,0.3);
+      padding: 4px 10px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+    }
+
+    audio {
+      width: 100%;
+      height: 40px;
+      border-radius: 8px;
+      outline: none;
+    }
+
+    .btn-action {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      max-width: 420px;
+      padding: 16px 24px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 14px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(194, 65, 12, 0.4);
+      transition: all 0.2s ease;
+    }
+
+    .btn-action:disabled {
+      background: #334155;
+      color: #64748b;
+      box-shadow: none;
+      cursor: not-allowed;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+
+    /* Widok 2: Interaktywna mapa */
+    #map-screen {
+      display: none;
+      flex-direction: column;
+      height: 100vh;
+      position: relative;
+    }
+
+    #map {
+      flex: 1;
+      width: 100%;
+      z-index: 1;
+    }
+
+    /* Kafelek odliczania w rogu mapy */
+    .countdown-widget {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      z-index: 1000;
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(12px);
+      padding: 12px 16px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      max-width: 290px;
+      text-align: right;
+    }
+
+    .countdown-author {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--gold);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 2px;
+    }
+
+    .countdown-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .countdown-timer {
+      font-family: monospace;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #38bdf8;
+      letter-spacing: 0.05em;
+    }
+
+    /* Dolny panel z informacją w wersji DEMO */
+    .stop-panel-demo {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(16px);
+      border-top: 1px solid var(--border);
+      padding: 18px 20px 24px 20px;
+      z-index: 1000;
+      text-align: center;
+      box-shadow: 0 -10px 30px rgba(0,0,0,0.5);
+    }
+
+    .stop-panel-demo h3 {
+      font-size: 1.1rem;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+
+    .stop-panel-demo p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* Styl znaczników */
+    .custom-marker {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      color: white;
+      font-weight: 700;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+      border: 2px solid white;
+      background: #475569;
+      opacity: 0.75;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Widok 1: Wstęp (Wersja DEMO z limitem 40s) -->
+  <div id="intro-screen">
+    <div class="badge-demo">Wersja Demonstracyjna</div>
+    <h1>Bolonia</h1>
+    <p class="subtitle">Przewodnik audio po mieście portyków, smaku i tajemnic.</p>
+
+    <div class="player-card">
+      <div class="player-title">Wstęp do Bolonii (Demo)</div>
+      <div class="player-desc">Fragment wprowadzający do spaceru</div>
+      <div class="limit-notice">⏱ Odsłuchaj 40 sekund, aby podejrzeć mapę</div>
+      
+      <audio id="intro-audio" controls>
+        <source src="Bolonia wstep.mp3" type="audio/mpeg">
+        Twoja przeglądarka nie obsługuje dźwięku.
+      </audio>
+    </div>
+
+    <button id="btn-start-map" class="btn-action" disabled>
+      <span>Podejrzyj trasę na mapie</span>
+      <span>🔒</span>
+    </button>
+  </div>
+
+  <!-- Widok 2: Mapa Demo z licznikiem -->
+  <div id="map-screen">
+    <!-- Pływający widget z licznikiem czasu w rogu -->
+    <div class="countdown-widget">
+      <div class="countdown-author">Przewodnik Krisa • Wersja Demo</div>
+      <div class="countdown-label">Czas do rozpoczęcia wycieczki:</div>
+      <div class="countdown-timer" id="timer">--d --g --m --s</div>
+    </div>
+
+    <div id="map"></div>
+
+    <!-- Dolna informacja -->
+    <div class="stop-panel-demo">
+      <h3>🔒 Pełna trasa zablokowana</h3>
+      <p>Punkty spaceru i opowieści audio zostaną odblokowane w trakcie wyjazdu.</p>
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Dokładne współrzędne punktów trasy
+    const stops = [
+      { id: 1, coords: [44.4815, 11.3413] },
+      { id: 2, coords: [44.4891, 11.3465] },
+      { id: 3, coords: [44.4920, 11.3436] },
+      { id: 4, coords: [44.4938, 11.3429] },
+      { id: 5, coords: [44.4942, 11.3431] },
+      { id: 6, coords: [44.4943, 11.3466] },
+      { id: 7, coords: [44.4981, 11.3444] },
+      { id: 8, coords: [44.4996, 11.3449] },
+      { id: 9, coords: [44.5011, 11.3457] },
+      { id: 10, coords: [44.5058, 11.3433] }
+    ];
+
+    const introAudio = document.getElementById('intro-audio');
+    const btnStartMap = document.getElementById('btn-start-map');
+    const introScreen = document.getElementById('intro-screen');
+    const mapScreen = document.getElementById('map-screen');
+    let map = null;
+
+    // 1. Zatrzymanie odtwarzania po dokładnie 40 sekundach i odblokowanie przycisku
+    introAudio.addEventListener('timeupdate', () => {
+      if (introAudio.currentTime >= 40) {
+        introAudio.pause();
+        enableMapButton();
+      }
+    });
+
+    // Jeśli nagranie skończy się wcześniej niż 40s
+    introAudio.addEventListener('ended', enableMapButton);
+
+    function enableMapButton() {
+      btnStartMap.removeAttribute('disabled');
+      btnStartMap.innerHTML = "<span>Podejrzyj trasę na mapie</span> ➔";
+    }
+
+    btnStartMap.addEventListener('click', () => {
+      introScreen.style.display = 'none';
+      mapScreen.style.display = 'flex';
+      initMap();
+    });
+
+    // 2. Inicjalizacja mapy Leaflet
+    function initMap() {
+      if (map) return;
+
+      map = L.map('map').setView([44.4938, 11.3436], 14);
+
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19
+      }).addTo(map);
+
+      // Ścieżka spaceru
+      const pathCoords = stops.map(s => s.coords);
+      L.polyline(pathCoords, {
+        color: '#c2410c',
+        weight: 4,
+        dashArray: '6, 8',
+        opacity: 0.7
+      }).addTo(map);
+
+      // Dodanie samych punktów z numerami (bez nazw i bez nagrań)
+      stops.forEach((stop) => {
+        const markerEl = document.createElement('div');
+        markerEl.className = 'custom-marker';
+        markerEl.innerText = stop.id;
+
+        const icon = L.divIcon({
+          html: markerEl,
+          className: '',
+          iconSize: [26, 26]
+        });
+
+        const marker = L.marker(stop.coords, { icon: icon }).addTo(map);
+        marker.on('click', () => {
+          alert(`Punkt ${stop.id}: Opowieść audio i opis miejsca dostępne w pełnej wersji przewodnika!`);
+        });
+      });
+    }
+
+    // 3. Licznik czasu: 15 listopada 2026 r., godz. 04:00 rano
+    const targetDate = new Date('2026-11-15T04:00:00').getTime();
+
+    function updateCountdown() {
+      const now = new Date().getTime();
+      const difference = targetDate - now;
+
+      if (difference <= 0) {
+        document.getElementById('timer').innerText = "Wycieczka rozpoczęta!";
+        return;
+      }
+
+      const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+
+      document.getElementById('timer').innerText = 
+        `${days}d ${hours}g ${minutes}m ${seconds}s`;
+    }
+
+    setInterval(updateCountdown, 1000);
+    updateCountdown();
+  </script>
+</body>
+</html>
