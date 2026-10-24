@@ -58,7 +58,6 @@
       object-fit: cover;
     }
 
-    /* Ekran startowy z wymuszeniem pierwszego kliknięcia dla natychmiastowego dźwięku */
     #video-starter {
       position: absolute;
       top: 0;
@@ -131,7 +130,7 @@
       border-color: rgba(255, 255, 255, 0.4);
     }
 
-    /* Widok 1: Strona powitalna ze wstępem */
+    /* Widok 1: Wstęp */
     #intro-screen {
       flex: 1;
       display: flex;
@@ -204,14 +203,71 @@
       background: rgba(0,0,0,0.3);
       padding: 4px 10px;
       border-radius: 6px;
-      margin-bottom: 12px;
+      margin-bottom: 16px;
     }
 
-    audio {
+    /* ZABEZPIECZONY ODTWARZACZ DEMO (BEZ MOŻLIWOŚCI PRZEWIJANIA) */
+    .custom-player {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: #0f172a;
+      padding: 10px 16px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+
+    .btn-play-pause {
+      background: var(--primary);
+      border: none;
+      color: white;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+
+    .btn-play-pause:hover {
+      background: var(--primary-hover);
+    }
+
+    .progress-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .progress-bar-bg {
       width: 100%;
-      height: 40px;
-      border-radius: 8px;
-      outline: none;
+      height: 6px;
+      background: #334155;
+      border-radius: 999px;
+      overflow: hidden;
+      position: relative;
+      cursor: default; /* Blokada kursora */
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--gold);
+      border-radius: 999px;
+      transition: width 0.2s linear;
+    }
+
+    .time-display {
+      font-family: monospace;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
     }
 
     .btn-action {
@@ -255,7 +311,6 @@
       z-index: 1;
     }
 
-    /* Kafelek odliczania w rogu mapy */
     .countdown-widget {
       position: absolute;
       top: 16px;
@@ -294,7 +349,6 @@
       letter-spacing: 0.05em;
     }
 
-    /* Dolny panel z informacją w wersji DEMO */
     .stop-panel-demo {
       position: absolute;
       bottom: 0;
@@ -340,7 +394,6 @@
 
   <!-- EKRAN 0: PEŁNOEKRANOWE INTRO WIDEO -->
   <div id="video-overlay">
-    <!-- Nakładka startowa gwarantująca natychmiastowe odtworzenie dźwięku od sekundy 0 -->
     <div id="video-starter">
       <div class="play-circle">▶</div>
       <h2 style="font-size: 1.5rem; font-weight: 800; margin-bottom: 6px;">Dotknij, aby włączyć</h2>
@@ -353,7 +406,6 @@
     </video>
 
     <div class="video-controls-overlay">
-      <!-- Domyślnie dźwięk jest WŁĄCZONY, więc przycisk służy do wyciszenia -->
       <button id="btn-toggle-sound" class="btn-video-control">
         <span id="sound-icon">🔇</span> <span id="sound-text">Wycisz dźwięk</span>
       </button>
@@ -363,7 +415,7 @@
     </div>
   </div>
 
-  <!-- Widok 1: Wstęp (Wersja DEMO z limitem 40s) -->
+  <!-- Widok 1: Wstęp (Zabezpieczony limit 40 sekund) -->
   <div id="intro-screen">
     <div class="badge-demo">Wersja Demonstracyjna</div>
     <h1>Bolonia</h1>
@@ -372,12 +424,26 @@
     <div class="player-card">
       <div class="player-title">Wstęp do Bolonii (Demo)</div>
       <div class="player-desc">Fragment wprowadzający do spaceru</div>
-      <div class="limit-notice">⏱ Odsłuchaj 40 sekund, aby podejrzeć mapę</div>
+      <div class="limit-notice">⏱ Odsłuchaj 40 sekund, aby odblokować mapę</div>
       
-      <audio id="intro-audio" controls>
+      <!-- Niewidoczny element audio HTML5 -->
+      <audio id="intro-audio" preload="auto">
         <source src="Bolonia wstep.mp3" type="audio/mpeg">
-        Twoja przeglądarka nie obsługuje dźwięku.
       </audio>
+
+      <!-- Dedykowany, zablokowany przed przewijaniem odtwarzacz UI -->
+      <div class="custom-player">
+        <button id="btn-play-pause" class="btn-play-pause">▶</button>
+        <div class="progress-wrapper">
+          <div class="progress-bar-bg">
+            <div id="progress-bar-fill" class="progress-bar-fill"></div>
+          </div>
+          <div class="time-display">
+            <span id="current-time">0:00</span>
+            <span>0:40 (limit demo)</span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <button id="btn-start-map" class="btn-action" disabled>
@@ -405,7 +471,7 @@
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    // ZARZĄDZANIE WIDEO Z PEŁNYM DŹWIĘKIEM OD POCZĄTKU
+    // ZARZĄDZANIE WIDEO PROMO
     const videoOverlay = document.getElementById('video-overlay');
     const videoStarter = document.getElementById('video-starter');
     const promoVideo = document.getElementById('promo-video');
@@ -414,23 +480,18 @@
     const soundText = document.getElementById('sound-text');
     const btnSkipVideo = document.getElementById('btn-skip-video');
 
-    // Ustawienie dźwięku na WŁĄCZONY
     promoVideo.muted = false;
     promoVideo.volume = 1.0;
 
-    // Próba autoplay z dźwiękiem (jeśli przeglądarka pozwoli)
     const directPlay = promoVideo.play();
     if (directPlay !== undefined) {
       directPlay.then(() => {
-        // Udało się wystartować od razu z głosem – ukrywamy nakładkę startową
         videoStarter.style.display = 'none';
       }).catch(() => {
-        // Przeglądarka zablokowała autoplay z dźwiękiem – nakładka czeka na jedno dotknięcie
         videoStarter.style.display = 'flex';
       });
     }
 
-    // Kliknięcie w nakładkę startuje wideo natychmiast z pełnym dźwiękiem od początku
     videoStarter.addEventListener('click', () => {
       videoStarter.style.display = 'none';
       promoVideo.currentTime = 0;
@@ -439,7 +500,6 @@
       promoVideo.play();
     });
 
-    // Przycisk wyciszenia / ponownego włączenia dźwięku
     btnToggleSound.addEventListener('click', (e) => {
       e.stopPropagation();
       if (!promoVideo.muted) {
@@ -453,7 +513,6 @@
       }
     });
 
-    // Zamknięcie intro po skończeniu lub kliknięciu "Pomiń"
     function closeVideoIntro() {
       promoVideo.pause();
       videoOverlay.style.opacity = '0';
@@ -468,7 +527,78 @@
       closeVideoIntro();
     });
 
-    // PUNKTY I LOGIKA DEMO
+    // ZABEZPIECZONY ODTWARZACZ DEMO (SZTYWNA BLOKADA PRZEWIJANIA)
+    const introAudio = document.getElementById('intro-audio');
+    const btnPlayPause = document.getElementById('btn-play-pause');
+    const progressBarFill = document.getElementById('progress-bar-fill');
+    const currentTimeDisplay = document.getElementById('current-time');
+    const btnStartMap = document.getElementById('btn-start-map');
+    const introScreen = document.getElementById('intro-screen');
+    const mapScreen = document.getElementById('map-screen');
+
+    const MAX_ALLOWED_TIME = 40.0; // twardy limit 40 sekund
+
+    btnPlayPause.addEventListener('click', () => {
+      if (introAudio.paused) {
+        if (introAudio.currentTime >= MAX_ALLOWED_TIME) {
+          introAudio.currentTime = 0;
+        }
+        introAudio.play();
+        btnPlayPause.innerText = "❚❚";
+      } else {
+        introAudio.pause();
+        btnPlayPause.innerText = "▶";
+      }
+    });
+
+    // Ścisły nadzór czasu – nie pozwala wyjść powyżej 40s i blokuje próby przewijania
+    introAudio.addEventListener('timeupdate', () => {
+      const cur = introAudio.currentTime;
+
+      // Blokada: jeśli ktoś próbowałby przewinąć dalej, ucinamy natychmiast
+      if (cur >= MAX_ALLOWED_TIME) {
+        introAudio.pause();
+        introAudio.currentTime = MAX_ALLOWED_TIME;
+        btnPlayPause.innerText = "▶";
+        enableMapButton();
+      }
+
+      // Aktualizacja paska (procent z 40 sekund)
+      const percent = Math.min((cur / MAX_ALLOWED_TIME) * 100, 100);
+      progressBarFill.style.width = `${percent}%`;
+
+      // Formatowanie sekund
+      const displaySec = Math.floor(Math.min(cur, MAX_ALLOWED_TIME));
+      const mins = Math.floor(displaySec / 60);
+      const secs = displaySec % 60;
+      currentTimeDisplay.innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    });
+
+    // Zabezpieczenie przed zdarzeniem seek
+    introAudio.addEventListener('seeking', () => {
+      if (introAudio.currentTime > MAX_ALLOWED_TIME) {
+        introAudio.currentTime = MAX_ALLOWED_TIME;
+      }
+    });
+
+    introAudio.addEventListener('ended', () => {
+      btnPlayPause.innerText = "▶";
+      enableMapButton();
+    });
+
+    function enableMapButton() {
+      btnStartMap.removeAttribute('disabled');
+      btnStartMap.innerHTML = "<span>Podejrzyj trasę na mapie</span> ➔";
+    }
+
+    btnStartMap.addEventListener('click', () => {
+      introAudio.pause();
+      introScreen.style.display = 'none';
+      mapScreen.style.display = 'flex';
+      initMap();
+    });
+
+    // PUNKTY I MAPA LEAFLET
     const stops = [
       { id: 1, coords: [44.4815, 11.3413] },
       { id: 2, coords: [44.4891, 11.3465] },
@@ -482,31 +612,7 @@
       { id: 10, coords: [44.5058, 11.3433] }
     ];
 
-    const introAudio = document.getElementById('intro-audio');
-    const btnStartMap = document.getElementById('btn-start-map');
-    const introScreen = document.getElementById('intro-screen');
-    const mapScreen = document.getElementById('map-screen');
     let map = null;
-
-    introAudio.addEventListener('timeupdate', () => {
-      if (introAudio.currentTime >= 40) {
-        introAudio.pause();
-        enableMapButton();
-      }
-    });
-
-    introAudio.addEventListener('ended', enableMapButton);
-
-    function enableMapButton() {
-      btnStartMap.removeAttribute('disabled');
-      btnStartMap.innerHTML = "<span>Podejrzyj trasę na mapie</span> ➔";
-    }
-
-    btnStartMap.addEventListener('click', () => {
-      introScreen.style.display = 'none';
-      mapScreen.style.display = 'flex';
-      initMap();
-    });
 
     function initMap() {
       if (map) return;
